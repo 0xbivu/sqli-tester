@@ -8,7 +8,7 @@ usage:
   ./sqli.py "https://site/item?id=1&cat=books"
   ./sqli.py "https://site/login" -d "user=admin&pass=x"
 """
-import sys, re, time, argparse, urllib.parse as up, urllib.request as ur, ssl
+import sys, re, time, argparse, os, urllib.parse as up, urllib.request as ur, ssl
 
 # DBMS error signatures -> error-based injection is confirmed if one appears
 ERRORS = re.compile(r"|".join([
@@ -82,6 +82,8 @@ def main():
     ap = argparse.ArgumentParser(description="SQL injection parameter tester (authorized use only)")
     ap.add_argument("url", help="target URL; include query params for GET")
     ap.add_argument("-d", "--data", help="POST form data, e.g. 'user=a&pass=b'")
+    ap.add_argument("-f", "--fuzz", nargs="?", const="", metavar="WORDLIST",
+                    help="also test common param names from WORDLIST (default: params.txt beside this script), value=1")
     a = ap.parse_args()
 
     if a.data:
@@ -91,8 +93,14 @@ def main():
         params = dict(up.parse_qsl(u.query, keep_blank_values=True))
         target = up.urlunsplit((u.scheme, u.netloc, u.path, "", "")); post = False
 
+    if a.fuzz is not None:
+        wl = a.fuzz or os.path.join(os.path.dirname(os.path.abspath(__file__)), "params.txt")
+        names = [n.strip() for n in open(wl) if n.strip() and not n.startswith("#")]
+        for n in names:
+            params.setdefault(n, "1")  # don't clobber a real value already on the URL
+
     if not params:
-        sys.exit("no parameters found — add ?a=1&b=2 to the URL or pass -d 'a=1&b=2'")
+        sys.exit("no parameters found — add ?a=1&b=2, pass -d 'a=1&b=2', or use -f to fuzz common names")
 
     print(f"[*] {'POST' if post else 'GET'} {target} — {len(params)} param(s): {', '.join(params)}\n")
     hits = 0
