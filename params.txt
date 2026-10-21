@@ -94,3 +94,5 @@ customer
 invoice
 report
 report_id
+debug
+secret_id
